@@ -1,0 +1,294 @@
+// Dynamic Board System By Rosevelts
+
+#include <a_samp>
+
+#define MAX_BOARDS 51
+
+#define                      COLOR_ALIREZA                            0xFFFFFFFF
+#define                      COLOR_GREY                               0xAFAFAFFF
+
+#include <zcmd>
+#include <streamer>
+#include <sscanf>
+
+new bEdit[MAX_PLAYERS]; //
+new bEditID[MAX_PLAYERS]; // Object's ID
+new Float:bPos[MAX_PLAYERS][3];
+new Float:bRot[MAX_PLAYERS][3];
+
+enum boardInfo
+{
+	bBoard,
+	Text3D:bText,
+	bModel,
+	Float:bCX,
+	Float:bCY,
+	Float:bCZ,
+	Float:bCRX,
+	Float:bCRY,
+	Float:bCRZ,
+	bStatus,
+	bTextM[128],
+	bFontSiz
+}
+new BoardInfo[MAX_BOARDS][boardInfo];
+
+
+stock LoadBoards()
+{
+
+	new dinfo[9][128];
+	new string[256];
+	if(!fexist("boards.cfg")) fcreate("boards.cfg");
+	new File:file = fopen("boards.cfg", io_read);
+	if(file)
+	{
+	    new idx = 1;
+		while(idx < MAX_BOARDS)
+		{
+		    fread(file, string);
+		    split(string, dinfo, '|');
+			BoardInfo[idx][bModel] = strval(dinfo[0]);
+			BoardInfo[idx][bCX] = floatstr(dinfo[1]);
+			BoardInfo[idx][bCY] = floatstr(dinfo[2]);
+			BoardInfo[idx][bCZ] = floatstr(dinfo[3]);
+			BoardInfo[idx][bCRX] = floatstr(dinfo[4]);
+			BoardInfo[idx][bCRY] = floatstr(dinfo[5]);
+			BoardInfo[idx][bCRZ] = floatstr(dinfo[6]);
+			format(BoardInfo[idx][bTextM],32,"%s",dinfo[7]);
+			BoardInfo[idx][bFontSiz] = strval(dinfo[8]);
+			if(BoardInfo[idx][bModel]) // If board exists
+			{
+			    format(string, sizeof(string), "{60D754}(%d)", idx);
+				BoardInfo[idx][bBoard] = CreateDynamicObject(BoardInfo[idx][bModel], BoardInfo[idx][bCX], BoardInfo[idx][bCY], BoardInfo[idx][bCZ], BoardInfo[idx][bCRX], BoardInfo[idx][bCRY], BoardInfo[idx][bCRZ]);
+				BoardInfo[idx][bText] = CreateDynamic3DTextLabel(string, COLOR_ALIREZA, BoardInfo[idx][bCX], BoardInfo[idx][bCY], BoardInfo[idx][bCZ], 10);
+		        SetDynamicObjectMaterialText(BoardInfo[idx][bBoard],0,BoardInfo[idx][bTextM],OBJECT_MATERIAL_SIZE_256x128,"a51_glass",BoardInfo[idx][bFontSiz],1,0x000000FF,0xFFFFFFFF,OBJECT_MATERIAL_TEXT_ALIGN_CENTER);
+				BoardInfo[idx][bStatus] = 1; // 0
+			}
+			idx++;
+	    }
+	}
+	print("ADBoard loaded successfully.");
+	return 1;
+}
+
+stock SaveBoards()
+{
+	new idx = 1, File:file;
+	new string[256];
+	if(!fexist("boards.cfg")) fcreate("boards.cfg");
+	while(idx < MAX_BOARDS)
+	{
+	    format(string, sizeof(string), "%d|%f|%f|%f|%f|%f|%f|%s|%d\r\n",
+		BoardInfo[idx][bModel],
+		BoardInfo[idx][bCX],
+		BoardInfo[idx][bCY],
+		BoardInfo[idx][bCZ],
+		BoardInfo[idx][bCRX],
+		BoardInfo[idx][bCRY],
+		BoardInfo[idx][bCRZ],
+		BoardInfo[idx][bTextM],
+		BoardInfo[idx][bFontSiz]);
+		BoardInfo[idx][bStatus] = 1; // 0
+	    if(idx == 1)
+	    {
+	        file = fopen("boards.cfg", io_write);
+	    }
+	    else
+	    {
+	    	file = fopen("boards.cfg", io_append);
+	    }
+		fwrite(file, string);
+		fclose(file);
+		idx++;
+	}
+	print("ADBoard saved successfully.");
+	return 1;
+}
+
+CMD:editbfontsize(playerid, params[])
+{
+		new sizz,idx,string[128];
+		
+	    if(!IsPlayerAdmin(playerid)) return SendClientMessage(playerid, COLOR_GREY, "You Are Not Admin.");
+	    if(sscanf(params, "ii", idx, sizz)) return SendClientMessage(playerid, COLOR_ALIREZA, "USAGE: /editbfontsize [boardid] [size]");
+        if(!BoardInfo[idx][bModel]) return SendClientMessage(playerid, COLOR_GREY, "Invalid board id.");
+        BoardInfo[idx][bFontSiz] = sizz;
+		SetDynamicObjectMaterialText(BoardInfo[idx][bBoard],0,BoardInfo[idx][bTextM],OBJECT_MATERIAL_SIZE_256x128,"a51_glass",BoardInfo[idx][bFontSiz],1,0x000000FF,0xFFFFFFFF,OBJECT_MATERIAL_TEXT_ALIGN_CENTER);
+		format(string,128,"You set board id %d FontSize To %d",idx,sizz);
+		SendClientMessage(playerid,COLOR_ALIREZA,string);
+		SaveBoards();
+		return 1;
+}
+CMD:editbtext(playerid, params[])
+{
+		new idx,string[128],text[128];
+	    if(!IsPlayerAdmin(playerid)) return SendClientMessage(playerid, COLOR_GREY, "You Are Not Admin.");
+	    if(!sscanf(params, "is[128]", idx, text)) return SendClientMessage(playerid, COLOR_ALIREZA, "USAGE: /editbtext [boardid] [text]");
+        if(!BoardInfo[idx][bModel]) return SendClientMessage(playerid, COLOR_GREY, "Invalid board id.");
+		format(BoardInfo[idx][bTextM],sizeof(text),"{2641FE}%s",text);
+		SetDynamicObjectMaterialText(BoardInfo[idx][bBoard],0,BoardInfo[idx][bTextM],OBJECT_MATERIAL_SIZE_256x128,"a51_glass",BoardInfo[idx][bFontSiz],1,0x000000FF,0xFFFFFFFF,OBJECT_MATERIAL_TEXT_ALIGN_CENTER);
+		format(string,256,"You set board id %d text To: %s",idx,BoardInfo[idx][bTextM]);
+		SendClientMessage(playerid,COLOR_ALIREZA,string);
+		SaveBoards();
+        return 1;
+}
+CMD:editbpos(playerid, params[])
+{
+		new idx,string[128];
+	    if(!IsPlayerAdmin(playerid)) return SendClientMessage(playerid, COLOR_GREY, "You Are Not Admin.");
+	    if(sscanf(params, "i", idx)) return SendClientMessage(playerid, COLOR_ALIREZA, "USAGE: /editbpos [boardid]");
+        if(!BoardInfo[idx][bModel]) return SendClientMessage(playerid, COLOR_GREY, "Invalid board id.");
+		bEdit[playerid] = 1;
+		bEditID[playerid] = idx;
+		GetDynamicObjectPos(BoardInfo[idx][bBoard], bPos[playerid][0], bPos[playerid][1], bPos[playerid][2]);
+		GetDynamicObjectRot(BoardInfo[idx][bBoard], bRot[playerid][0], bRot[playerid][1], bRot[playerid][2]);
+		EditDynamicObject(playerid, BoardInfo[idx][bBoard]);
+	    format(string, sizeof(string), " You are now editing board ID %d's position.", idx);
+	    SendClientMessage(playerid, COLOR_ALIREZA, string);
+	    return 1;
+}
+
+
+CMD:gotoboard(playerid, params[])
+{
+    new idx, string[128];
+	if(!IsPlayerAdmin(playerid)) return SendClientMessage(playerid, COLOR_GREY, "You Are Not Admin.");
+	if(sscanf(params, "i", idx)) return SendClientMessage(playerid, COLOR_ALIREZA, "USAGE: /gotoboard [boardid]");
+	if(!BoardInfo[idx][bModel]) return SendClientMessage(playerid, COLOR_GREY, "Invalid board id.");
+	SetPlayerPos(playerid, BoardInfo[idx][bCX], BoardInfo[idx][bCY], BoardInfo[idx][bCZ]);
+	format(string, sizeof(string), " You have teleported to board ID %d.", idx);
+	SendClientMessage(playerid, COLOR_ALIREZA, string);
+	return 1;
+}
+CMD:deleteboard(playerid, params[])
+{
+	new idx, string[128];
+	if(!IsPlayerAdmin(playerid)) return SendClientMessage(playerid, COLOR_GREY, "You Are Not Admin.");
+	if(sscanf(params, "i", idx)) return SendClientMessage(playerid, COLOR_ALIREZA, "USAGE: /deleteboard [boardid]");
+	if(!BoardInfo[idx][bModel]) return SendClientMessage(playerid, COLOR_GREY, "Invalid board id.");
+	BoardInfo[idx][bModel] = 0;
+	BoardInfo[idx][bCX] = 0;
+	BoardInfo[idx][bCY] = 0;
+	BoardInfo[idx][bCZ] = 0;
+	BoardInfo[idx][bCRX] = 0;
+	BoardInfo[idx][bCRY] = 0;
+	BoardInfo[idx][bCRZ] = 0;
+	BoardInfo[idx][bStatus] = 0;
+	DestroyDynamicObject(BoardInfo[idx][bBoard]);
+	DestroyDynamic3DTextLabel(BoardInfo[idx][bText]);
+	format(string, sizeof(string), " deleted board ID %d.", idx);
+    SendClientMessage(playerid,COLOR_ALIREZA, string);
+    SaveBoards();
+	return 1;
+}
+CMD:createboard(playerid, params[])
+{
+	new string[128];
+	if(!IsPlayerAdmin(playerid)) return SendClientMessage(playerid, COLOR_GREY, "You Are Not Admin.");
+	for(new idx=1; idx<MAX_BOARDS; idx++)
+	{
+	    if(!BoardInfo[idx][bModel])
+	    {
+	        GetPlayerPos(playerid, BoardInfo[idx][bCX], BoardInfo[idx][bCY], BoardInfo[idx][bCZ]);
+  			BoardInfo[idx][bModel] = 5846;
+			BoardInfo[idx][bCX] = BoardInfo[idx][bCX] + 2;
+			BoardInfo[idx][bCY] = BoardInfo[idx][bCY] + 2;
+			BoardInfo[idx][bCRX] = 0;
+			BoardInfo[idx][bCRY] = 0;
+			BoardInfo[idx][bCRZ] = 0;
+			BoardInfo[idx][bStatus] = 0;
+			BoardInfo[idx][bFontSiz] = 0;
+			format(BoardInfo[idx][bTextM],32,"");
+			// Creating
+			format(string, sizeof(string), "{60D754}(%d)", idx);
+			BoardInfo[idx][bBoard] = CreateDynamicObject(BoardInfo[idx][bModel], BoardInfo[idx][bCX], BoardInfo[idx][bCY], BoardInfo[idx][bCZ], BoardInfo[idx][bCRX], BoardInfo[idx][bCRY], BoardInfo[idx][bCRZ]);
+			BoardInfo[idx][bText] = CreateDynamic3DTextLabel(string, COLOR_ALIREZA, BoardInfo[idx][bCX], BoardInfo[idx][bCY], BoardInfo[idx][bCZ], 10);
+			// Text
+		    SetDynamicObjectMaterialText(BoardInfo[idx][bBoard],0,BoardInfo[idx][bTextM],OBJECT_MATERIAL_SIZE_256x128,"a51_glass",BoardInfo[idx][bFontSiz],1,0x000000FF,0xFFFFFFFF,OBJECT_MATERIAL_TEXT_ALIGN_CENTER);
+			format(string, sizeof(string), " created board ID %d. (Object: 5846)", idx);
+		    SendClientMessage(playerid,COLOR_ALIREZA, string);
+			idx = MAX_BOARDS;
+			SaveBoards();
+		}
+	}
+	return 1;
+}
+
+
+
+public OnPlayerEditDynamicObject(playerid, objectid, response, Float:x, Float:y, Float:z, Float:rx, Float:ry, Float:rz)
+{
+	new string[128], idx = bEditID[playerid];
+	if(response == EDIT_RESPONSE_UPDATE)
+	{
+	    SetDynamicObjectPos(objectid, x, y, z);
+		SetDynamicObjectRot(objectid, rx, ry, rz);
+	}
+	else if(response == EDIT_RESPONSE_CANCEL)
+	{
+	    SetDynamicObjectPos(objectid, bPos[playerid][0], bPos[playerid][1], bPos[playerid][2]);
+		SetDynamicObjectRot(objectid, bRot[playerid][0], bRot[playerid][1],bRot[playerid][2]);
+		bPos[playerid][0] = 0; bPos[playerid][1] = 0; bPos[playerid][2] = 0;
+		bRot[playerid][0] = 0; bRot[playerid][1] = 0; bRot[playerid][2] = 0;
+		format(string, sizeof(string), " You have canceled editing board ID %d.", idx);
+		SendClientMessage(playerid, COLOR_ALIREZA, string);
+	}
+	else if(response == EDIT_RESPONSE_FINAL)
+	{
+		SetDynamicObjectPos(objectid, x, y, z);
+		SetDynamicObjectRot(objectid, rx, ry, rz);
+		if(bEdit[playerid] == 1)
+		{
+		    BoardInfo[idx][bCX] = x;
+			BoardInfo[idx][bCY] = y;
+			BoardInfo[idx][bCZ] = z;
+			BoardInfo[idx][bCRX] = rx;
+			BoardInfo[idx][bCRY] = ry;
+			BoardInfo[idx][bCRZ] = rz;
+			if(IsValidDynamic3DTextLabel(BoardInfo[idx][bText])) DestroyDynamic3DTextLabel(BoardInfo[idx][bText]);
+			format(string, sizeof(string), "{60D754}(%d)", idx);
+			BoardInfo[idx][bText] = CreateDynamic3DTextLabel(string, COLOR_ALIREZA, BoardInfo[idx][bCX], BoardInfo[idx][bCY], BoardInfo[idx][bCZ], 10);
+		    bEdit[playerid] = 0;
+		    bEditID[playerid] = 0;
+		    format(string, sizeof(string), " You have finished editing board ID %d's position.", idx);
+		    SendClientMessage(playerid, COLOR_ALIREZA, string);
+		    BoardInfo[idx][bStatus] = 0;
+		    SaveBoards();
+		}
+	}
+	return 1;
+}
+
+
+//------------------------------------------------------------------------------
+stock fcreate(filename[])
+{
+	if (fexist(filename)) return false;
+	new File:fhnd;
+	fhnd=fopen(filename,io_write);
+	if (fhnd) {
+		fclose(fhnd);
+		return true;
+	}
+	return false;
+}
+//------------------------------------------------------------------------------
+stock split(const strsrc[], strdest[][], delimiter)
+{
+    new i, li;
+    new aNum;
+    new len;
+    while(i <= strlen(strsrc))
+    {
+        if(strsrc[i] == delimiter || i == strlen(strsrc))
+        {
+            len = strmid(strdest[aNum], strsrc, li, i, 128);
+            strdest[aNum][len] = 0;
+            li = i+1;
+            aNum++;
+        }
+        i++;
+    }
+    return 1;
+}
